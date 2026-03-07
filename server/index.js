@@ -17,6 +17,9 @@ if (process.env.DATABASE_URL) {
   console.warn('⚠️  No DATABASE_URL — using in-memory sessions (development only)');
 }
 
+// Trust Render's reverse proxy so req.secure is correct and Secure cookies are set
+app.set('trust proxy', 1);
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

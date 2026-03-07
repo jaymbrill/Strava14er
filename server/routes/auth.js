@@ -88,16 +88,6 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// Temporary debug route — remove after diagnosis
-router.get('/debug', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json({
-    sessionId: req.sessionID,
-    session: req.session,
-    cookies: req.headers.cookie || 'no cookies sent',
-  });
-});
-
 // Get current session user info
 router.get('/me', async (req, res) => {
   res.set('Cache-Control', 'no-store');
