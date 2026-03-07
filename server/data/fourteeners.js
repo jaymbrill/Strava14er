@@ -756,19 +756,7 @@ const FOURTEENERS = [
     trailhead: 'Needleton (via Durango train)',
     bestSeason: 'July–September',
   },
-  {
-    id: 'stewart-peak',
-    name: 'Stewart Peak',
-    elevation: 14024,
-    lat: 37.9902,
-    lng: -106.9407,
-    range: 'San Juan Mountains',
-    difficulty: 'Class 2',
-    rank: 48,
-    description: 'Remote peak near San Luis, often part of a multi-peak day.',
-    trailhead: 'Halfmoon Creek / Stewart Creek Trailhead',
-    bestSeason: 'July–September',
-  },
+
   {
     id: 'vermilion-peak',
     name: 'Vermilion Peak',
