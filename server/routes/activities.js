@@ -121,8 +121,7 @@ router.post('/sync', requireAuth, async (req, res) => {
     const lastSynced = userRes.rows[0]?.last_synced_at;
     const afterEpoch = lastSynced ? Math.floor(new Date(lastSynced).getTime() / 1000) : 0;
 
-    // Fetch activities from Strava (hiking/walking/running types)
-    const ACTIVITY_TYPES = ['Hike', 'Walk', 'Trail Run', 'Run', 'BackcountrySki', 'Snowshoe'];
+    // Fetch all activities from Strava — GPS proximity check is the real gate
     let page = 1;
     let allActivities = [];
     let fetched = true;
@@ -136,8 +135,7 @@ router.post('/sync', requireAuth, async (req, res) => {
       const activities = actRes.data;
       if (!activities.length) { fetched = false; break; }
 
-      const relevant = activities.filter(a => ACTIVITY_TYPES.includes(a.type));
-      allActivities = allActivities.concat(relevant);
+      allActivities = allActivities.concat(activities);
       if (activities.length < 200) break;
       page++;
     }
@@ -158,14 +156,14 @@ router.post('/sync', requireAuth, async (req, res) => {
 
         try {
           await pool.query(
-            `INSERT INTO summits (user_id, fourteener_id, strava_activity_id, activity_name, summited_at,
-              elapsed_time, moving_time, distance, total_elevation_gain, avg_heartrate, max_heartrate,
-              avg_speed, weather_temp_f, weather_wind_mph, weather_conditions)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            `INSERT INTO summits (user_id, fourteener_id, strava_activity_id, activity_name, activity_type,
+              summited_at, elapsed_time, moving_time, distance, total_elevation_gain, avg_heartrate,
+              max_heartrate, avg_speed, weather_temp_f, weather_wind_mph, weather_conditions)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
              ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
             [
-              userId, peak.id, activity.id, activity.name, summitedAt,
-              activity.elapsed_time, activity.moving_time, activity.distance,
+              userId, peak.id, activity.id, activity.name, activity.type || null,
+              summitedAt, activity.elapsed_time, activity.moving_time, activity.distance,
               activity.total_elevation_gain, activity.average_heartrate || null,
               activity.max_heartrate || null, activity.average_speed,
               weather?.tempHighF || null, weather?.windMph || null,
@@ -173,7 +171,7 @@ router.post('/sync', requireAuth, async (req, res) => {
             ]
           );
           newSummits++;
-          summitsFound.push(peak.name);
+          summitsFound.push(`${peak.name} (${activity.type})`);
         } catch {
           // duplicate or constraint error — skip
         }

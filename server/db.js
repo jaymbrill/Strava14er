@@ -58,6 +58,19 @@ const initDb = async () => {
 
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
     `);
+
+    // Migrations for columns added after initial deploy
+    await client.query(`
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS activity_type VARCHAR(100);
+    `);
+
+    // Reset sync cursor so the next sync re-scans full history now that the
+    // activity-type filter has been removed (previously filtered activities
+    // would never appear in incremental syncs).
+    await client.query(`
+      UPDATE users SET last_synced_at = NULL WHERE last_synced_at IS NOT NULL;
+    `);
+
     console.log('✅ Database initialized');
   } finally {
     client.release();
