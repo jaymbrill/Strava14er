@@ -26,5 +26,5 @@ services:
 
 databases:
   - name: colorado-14er-db
-    plan: free
+    plan: starter
     databaseName: fourteeners
