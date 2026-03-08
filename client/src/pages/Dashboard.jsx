@@ -13,6 +13,8 @@ const FILTERS = ['All', 'Completed', 'Not Completed'];
 const DIFFICULTIES = ['All', 'Class 1', 'Class 2', 'Class 3', 'Class 4'];
 const SORTS = ['Elevation ↓', 'Elevation ↑', 'Name A-Z', 'Date Summited'];
 
+const DEFAULT_BG = "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed";
+
 export default function Dashboard() {
   const [peaks, setPeaks] = useState([]);
   const [stats, setStats] = useState(null);
@@ -20,6 +22,7 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [showManual, setShowManual] = useState(false);
+  const [bgImage, setBgImage] = useState(null); // null = use default
 
   // Filters
   const [rangeFilter, setRangeFilter] = useState('All');
@@ -30,12 +33,14 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [peaksRes, statsRes] = await Promise.all([
+      const [peaksRes, statsRes, bgRes] = await Promise.all([
         axios.get('/api/fourteeners', { withCredentials: true }),
         axios.get('/api/fourteeners/stats/summary', { withCredentials: true }),
+        axios.get('/api/settings/background', { withCredentials: true }),
       ]);
       setPeaks(peaksRes.data);
       setStats(statsRes.data);
+      setBgImage(bgRes.data.backgroundImage || null);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -44,6 +49,31 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleBgUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const res = await axios.put('/api/settings/background', formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setBgImage(res.data.backgroundImage);
+    } catch (err) {
+      console.error('Background upload failed:', err);
+    }
+  };
+
+  const handleBgReset = async () => {
+    await axios.delete('/api/settings/background', { withCredentials: true });
+    setBgImage(null);
+  };
+
+  const bgStyle = bgImage
+    ? `url('${bgImage}') center/cover no-repeat fixed`
+    : DEFAULT_BG;
 
   const handleSync = async () => {
     setSyncing(true);
@@ -106,7 +136,7 @@ export default function Dashboard() {
       style={{
         background: [
           'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)',
-          "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed",
+          bgStyle,
         ].join(', '),
         backgroundColor: '#0a1628',
       }}
@@ -184,6 +214,34 @@ export default function Dashboard() {
                     </svg>
                     Add Manually
                   </button>
+
+                  {/* Background photo controls */}
+                  <label
+                    className="btn-secondary text-sm py-2.5 flex items-center gap-2 cursor-pointer"
+                    title="Upload a custom background photo"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Change Background
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleBgUpload}
+                    />
+                  </label>
+                  {bgImage && (
+                    <button
+                      onClick={handleBgReset}
+                      className="text-xs text-white/40 hover:text-white/70 transition-colors px-2 py-1 rounded-lg hover:bg-white/10"
+                      title="Restore default Longs Peak photo"
+                    >
+                      Reset photo
+                    </button>
+                  )}
                 </div>
 
                 {/* Sync result */}

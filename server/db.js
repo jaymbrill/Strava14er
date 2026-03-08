@@ -59,6 +59,11 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
     `);
     console.log('✅ Database initialized');
+
+    // Add background_image column if it doesn't exist (migration)
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS background_image TEXT;
+    `);
   } finally {
     client.release();
   }

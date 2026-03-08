@@ -48,6 +48,7 @@ app.use('/auth', require('./routes/auth'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/fourteeners', require('./routes/fourteeners'));
 app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/settings', require('./routes/settings'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
