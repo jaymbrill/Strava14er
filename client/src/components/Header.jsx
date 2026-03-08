@@ -57,14 +57,14 @@ export default function Header() {
               )}
               <button
                 onClick={() => setShowFeedback(true)}
-                className="text-xs text-white/50 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-1.5"
+                className="text-xs text-white/80 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/20 hover:border-white/40 hover:bg-white/10 flex items-center gap-1.5"
                 title="Send feedback"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="hidden sm:inline">Feedback</span>
+                Feedback
               </button>
               <button
                 onClick={logout}

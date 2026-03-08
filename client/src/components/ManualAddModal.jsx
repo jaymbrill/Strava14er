@@ -54,12 +54,11 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
             <select
               value={selectedPeak}
               onChange={e => setSelectedPeak(e.target.value)}
-              style={{ colorScheme: 'dark' }}
-              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-co-gold/50 focus:bg-white/12"
+              className="w-full bg-white border border-white/20 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
             >
-              <option value="" className="bg-gray-900">Select a peak…</option>
+              <option value="">Select a peak…</option>
               {sortedPeaks.map(p => (
-                <option key={p.id} value={p.id} className="bg-gray-900">
+                <option key={p.id} value={p.id}>
                   {p.completed ? '✓ ' : ''}{p.name} — {p.elevation.toLocaleString()}′
                 </option>
               ))}
@@ -73,7 +72,7 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
               value={date}
               onChange={e => setDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-co-gold/50 focus:bg-white/12"
+              className="w-full bg-white border border-white/20 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
             />
           </div>
 
