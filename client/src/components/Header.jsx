@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import FeedbackModal from './FeedbackModal';
 
 function MountainIcon() {
   return (
@@ -15,6 +17,7 @@ function MountainIcon() {
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const [showFeedback, setShowFeedback] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 bg-co-peak/90 backdrop-blur-md border-b border-white/10">
@@ -53,6 +56,17 @@ export default function Header() {
                 />
               )}
               <button
+                onClick={() => setShowFeedback(true)}
+                className="text-xs text-white/50 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/10 flex items-center gap-1.5"
+                title="Send feedback"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="hidden sm:inline">Feedback</span>
+              </button>
+              <button
                 onClick={logout}
                 className="text-xs text-white/50 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/10"
               >
@@ -68,6 +82,8 @@ export default function Header() {
         <div className="w-8 bg-co-gold" />
         <div className="flex-1 bg-co-red" />
       </div>
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </header>
   );
 }

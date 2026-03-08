@@ -32,7 +32,16 @@ export default function Home() {
   }));
 
   return (
-    <div className="min-h-screen bg-mountain-gradient relative overflow-hidden flex flex-col">
+    <div
+      className="min-h-screen relative overflow-hidden flex flex-col"
+      style={{
+        background: [
+          'linear-gradient(to bottom, rgba(10,22,40,0.75) 0%, rgba(26,45,79,0.80) 50%, rgba(27,67,50,0.88) 100%)',
+          "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed",
+        ].join(', '),
+        backgroundColor: '#0a1628',
+      }}
+    >
       {/* Snowflakes */}
       {snowflakes.map((style, i) => <Snowflake key={i} style={style} />)}
 

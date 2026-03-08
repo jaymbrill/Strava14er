@@ -101,7 +101,16 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-co-peak via-[#0f1e35] to-[#0a1628]">
+    <div
+      className="min-h-screen relative"
+      style={{
+        background: [
+          'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)',
+          "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed",
+        ].join(', '),
+        backgroundColor: '#0a1628',
+      }}
+    >
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -212,8 +212,7 @@ router.post('/summit/manual', requireAuth, async (req, res) => {
     await pool.query(
       `INSERT INTO summits (user_id, fourteener_id, summited_at, manual, notes,
         weather_temp_f, weather_wind_mph, weather_conditions)
-       VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7)
-       ON CONFLICT DO NOTHING`,
+       VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7)`,
       [
         userId, fourteenerId, new Date(summitedAt), notes || null,
         weather?.tempHighF || null, weather?.windMph || null, weather?.conditions || null,

@@ -9,28 +9,41 @@ const router = express.Router();
 router.get('/', requireAuth, async (req, res) => {
   const userId = req.session.userId;
   try {
-    // Get all summits for this user
-    const summitRes = await pool.query(
-      `SELECT DISTINCT ON (fourteener_id)
-        fourteener_id, id, strava_activity_id, activity_name, summited_at,
-        elapsed_time, moving_time, distance, total_elevation_gain,
-        avg_heartrate, max_heartrate, avg_speed, manual, notes,
-        weather_temp_f, weather_wind_mph, weather_conditions
-       FROM summits
-       WHERE user_id = $1
-       ORDER BY fourteener_id, summited_at DESC`,
-      [userId]
-    );
+    // Get latest summit per peak and total counts
+    const [summitRes, countRes] = await Promise.all([
+      pool.query(
+        `SELECT DISTINCT ON (fourteener_id)
+          fourteener_id, id, strava_activity_id, activity_name, summited_at,
+          elapsed_time, moving_time, distance, total_elevation_gain,
+          avg_heartrate, max_heartrate, avg_speed, manual, notes,
+          weather_temp_f, weather_wind_mph, weather_conditions
+         FROM summits
+         WHERE user_id = $1
+         ORDER BY fourteener_id, summited_at DESC`,
+        [userId]
+      ),
+      pool.query(
+        `SELECT fourteener_id, COUNT(*) AS summit_count
+         FROM summits WHERE user_id = $1
+         GROUP BY fourteener_id`,
+        [userId]
+      ),
+    ]);
 
     const summitMap = {};
     for (const s of summitRes.rows) {
       summitMap[s.fourteener_id] = s;
+    }
+    const countMap = {};
+    for (const c of countRes.rows) {
+      countMap[c.fourteener_id] = parseInt(c.summit_count, 10);
     }
 
     const peaks = OFFICIAL_FOURTEENERS.map(peak => ({
       ...peak,
       completed: !!summitMap[peak.id],
       summit: summitMap[peak.id] || null,
+      summitCount: countMap[peak.id] || 0,
     }));
 
     res.json(peaks);
