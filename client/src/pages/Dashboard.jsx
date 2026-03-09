@@ -114,6 +114,8 @@ export default function Dashboard() {
         className="absolute inset-0"
         style={{ background: 'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)' }}
       />
+      {/* All page content sits above the background layers */}
+      <div className="relative z-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -364,6 +366,7 @@ export default function Dashboard() {
           onAdded={fetchData}
         />
       )}
+      </div>
     </div>
   );
 }
