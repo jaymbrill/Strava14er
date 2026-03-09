@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import MountainSkyline from '../components/MountainSkyline';
+import ColoradoFlagLogo from '../components/ColoradoFlagLogo';
 
 const PEAKS = [
   'Mount Elbert', 'Longs Peak', 'Pikes Peak', 'Maroon Bells',
@@ -66,13 +67,10 @@ export default function Home() {
       {/* Header bar */}
       <header className="relative z-10 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <svg viewBox="0 0 40 32" className="w-10 h-8" fill="none">
-            <path d="M20 2 L38 30 L2 30 Z" fill="#FFC72C" />
-            <path d="M20 2 L28 14 L20 10 L14 16 L20 2Z" fill="white" opacity="0.9" />
-          </svg>
+          <ColoradoFlagLogo className="w-14 h-[46px]" />
           <div>
             <div className="font-display text-co-gold font-bold text-lg leading-none">Colorado</div>
-            <div className="text-xs text-white/50 uppercase tracking-widest">14er Tracker</div>
+            <div className="text-xs text-white/50 uppercase tracking-widest">Summit Log</div>
           </div>
         </div>
         {/* Colorado flag stripes */}

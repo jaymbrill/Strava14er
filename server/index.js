@@ -70,7 +70,7 @@ const start = async () => {
     await initDb();
   }
   app.listen(PORT, () => {
-    console.log(`🏔️  Colorado 14er Tracker running on port ${PORT}`);
+    console.log(`🏔️  Colorado Summit Log running on port ${PORT}`);
   });
 };
 

@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
     const senderLabel = [fromName, fromEmail ? `<${fromEmail}>` : ''].filter(Boolean).join(' ');
 
     await transporter.sendMail({
-      from: `"14er Tracker Feedback" <${smtpUser}>`,
+      from: `"Colorado Summit Log" <${smtpUser}>`,
       to: 'jay.m.brill@gmail.com',
       replyTo: fromEmail || smtpUser,
       subject: `[14er Feedback] ${subject || 'New message'}`,
