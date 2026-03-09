@@ -13,7 +13,7 @@ const FILTERS = ['All', 'Completed', 'Not Completed'];
 const DIFFICULTIES = ['All', 'Class 1', 'Class 2', 'Class 3', 'Class 4'];
 const SORTS = ['Elevation ↓', 'Elevation ↑', 'Name A-Z', 'Date Summited'];
 
-const DEFAULT_BG = "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed";
+const DEFAULT_BG_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg';
 
 export default function Dashboard() {
   const [peaks, setPeaks] = useState([]);
@@ -71,10 +71,6 @@ export default function Dashboard() {
     setBgImage(null);
   };
 
-  const bgStyle = bgImage
-    ? `url('${bgImage}') center/cover no-repeat fixed`
-    : DEFAULT_BG;
-
   const handleSync = async () => {
     setSyncing(true);
     setSyncResult(null);
@@ -131,16 +127,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div
-      className="min-h-screen relative"
-      style={{
-        background: [
-          'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)',
-          bgStyle,
-        ].join(', '),
-        backgroundColor: '#0a1628',
-      }}
-    >
+    <div className="min-h-screen relative" style={{ backgroundColor: '#0a1628' }}>
+      {/* Background image layer — absolute so it stretches with page height */}
+      <div
+        className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: `url(${bgImage || DEFAULT_BG_URL})` }}
+      />
+      {/* Dark gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)' }}
+      />
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

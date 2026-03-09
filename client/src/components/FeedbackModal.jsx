@@ -79,7 +79,7 @@ export default function FeedbackModal({ onClose }) {
                     value={fromName}
                     onChange={e => setFromName(e.target.value)}
                     placeholder="Jane Doe"
-                    className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-co-gold/50"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-co-gold/70 focus:ring-1 focus:ring-co-gold/40"
                   />
                 </div>
                 <div>
@@ -89,7 +89,7 @@ export default function FeedbackModal({ onClose }) {
                     value={fromEmail}
                     onChange={e => setFromEmail(e.target.value)}
                     placeholder="you@email.com"
-                    className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-co-gold/50"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-co-gold/70 focus:ring-1 focus:ring-co-gold/40"
                   />
                 </div>
               </div>
@@ -101,7 +101,7 @@ export default function FeedbackModal({ onClose }) {
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
                   placeholder="Feature request, bug report, etc."
-                  className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-co-gold/50"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-co-gold/70 focus:ring-1 focus:ring-co-gold/40"
                 />
               </div>
 
@@ -112,7 +112,7 @@ export default function FeedbackModal({ onClose }) {
                   onChange={e => setMessage(e.target.value)}
                   placeholder="Tell us what's on your mind…"
                   rows={4}
-                  className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-co-gold/50 resize-none"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-co-gold/70 focus:ring-1 focus:ring-co-gold/40 resize-none"
                 />
               </div>
 
