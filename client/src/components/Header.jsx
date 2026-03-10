@@ -14,7 +14,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            <ColoradoFlagLogo className="w-14 h-[46px]" />
+            <ColoradoFlagLogo className="w-14 h-[37px]" />
             <div>
               <div className="font-display text-lg font-bold text-co-gold leading-none">Colorado</div>
               <div className="text-xs text-white/60 uppercase tracking-widest">Summit Log</div>

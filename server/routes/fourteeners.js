@@ -16,7 +16,8 @@ router.get('/', requireAuth, async (req, res) => {
           fourteener_id, id, strava_activity_id, activity_name, summited_at,
           elapsed_time, moving_time, distance, total_elevation_gain,
           avg_heartrate, max_heartrate, avg_speed, manual, notes,
-          weather_temp_f, weather_wind_mph, weather_conditions
+          weather_temp_f, weather_wind_mph, weather_conditions,
+          trailhead_name, route_name
          FROM summits
          WHERE user_id = $1
          ORDER BY fourteener_id, summited_at DESC`,

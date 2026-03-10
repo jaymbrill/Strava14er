@@ -67,7 +67,7 @@ export default function Home() {
       {/* Header bar */}
       <header className="relative z-10 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <ColoradoFlagLogo className="w-14 h-[46px]" />
+          <ColoradoFlagLogo className="w-14 h-[37px]" />
           <div>
             <div className="font-display text-co-gold font-bold text-lg leading-none">Colorado</div>
             <div className="text-xs text-white/50 uppercase tracking-widest">Summit Log</div>

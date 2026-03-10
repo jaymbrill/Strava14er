@@ -60,9 +60,11 @@ const initDb = async () => {
     `);
     console.log('✅ Database initialized');
 
-    // Add background_image column if it doesn't exist (migration)
+    // Migrations
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS background_image TEXT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS trailhead_name TEXT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS route_name TEXT;
     `);
   } finally {
     client.release();

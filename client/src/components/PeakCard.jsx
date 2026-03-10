@@ -47,7 +47,7 @@ const difficultyColors = {
 };
 
 export default function PeakCard({ peak }) {
-  const { id, name, elevation, range, difficulty, completed, summit } = peak;
+  const { id, name, elevation, range, difficulty, completed, summit, trailhead } = peak;
   const elevFt = elevation.toLocaleString();
 
   return (
@@ -124,8 +124,18 @@ export default function PeakCard({ peak }) {
               </div>
             )}
           </div>
+          {(summit.route_name || summit.trailhead_name) && (
+            <div className="mt-2 text-xs text-white/40 flex items-center gap-1">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {summit.route_name || summit.trailhead_name}
+            </div>
+          )}
           {summit.weather_conditions && (
-            <div className="mt-2 text-xs text-white/40">
+            <div className="mt-1 text-xs text-white/40">
               🌤 {summit.weather_conditions}
               {summit.weather_temp_f && ` · ${Math.round(summit.weather_temp_f)}°F`}
               {summit.weather_wind_mph && ` · ${Math.round(summit.weather_wind_mph)} mph wind`}
