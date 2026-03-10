@@ -140,7 +140,9 @@ async function runSync(userId, accessToken, afterEpoch) {
     });
     const activities = actRes.data;
     if (!activities.length) { fetched = false; break; }
-    allActivities = allActivities.concat(activities.filter(a => ACTIVITY_TYPES.includes(a.type)));
+    allActivities = allActivities.concat(
+      activities.filter(a => ACTIVITY_TYPES.includes(a.sport_type) || ACTIVITY_TYPES.includes(a.type))
+    );
     if (activities.length < 200) break;
     page++;
   }
