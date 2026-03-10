@@ -24,14 +24,14 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 
 const SUMMIT_RADIUS_METERS = 400; // within 400 m of summit = summited
 
-// Returns { matches, startPoint } so the polyline is only decoded once.
+// Returns { matches, startPoint, endPoint } so the polyline is only decoded once.
 function findMatchedPeaks(activityPolyline) {
-  if (!activityPolyline) return { matches: [], startPoint: null };
+  if (!activityPolyline) return { matches: [], startPoint: null, endPoint: null };
   let points;
   try {
     points = polyline.decode(activityPolyline); // [[lat, lng], ...]
   } catch {
-    return { matches: [], startPoint: null };
+    return { matches: [], startPoint: null, endPoint: null };
   }
 
   const matches = [];
@@ -46,7 +46,7 @@ function findMatchedPeaks(activityPolyline) {
       matches.push({ peak, distanceMeters: closest });
     }
   }
-  return { matches, startPoint: points[0] || null };
+  return { matches, startPoint: points[0] || null, endPoint: points[points.length - 1] || null };
 }
 
 // Find the closest known trailhead for a peak to the hike's start GPS point.
@@ -160,11 +160,10 @@ router.post('/sync', requireAuth, async (req, res) => {
       const summitLine = activity.map?.summary_polyline;
       if (!summitLine) continue;
 
-      const { matches, startPoint } = findMatchedPeaks(summitLine);
+      const { matches, startPoint, endPoint } = findMatchedPeaks(summitLine);
 
       for (const { peak } of matches) {
         const summitedAt = new Date(activity.start_date);
-        const summitDate = summitedAt.toISOString().split('T')[0]; // YYYY-MM-DD (UTC)
         const newGain = activity.total_elevation_gain || 0;
 
         // Trailhead detection from GPS start
@@ -172,18 +171,41 @@ router.post('/sync', requireAuth, async (req, res) => {
           ? findNearestTrailhead(peak.id, startPoint[0], startPoint[1])
           : null;
 
-        // ── One summit per peak per calendar day ────────────────────────────
-        // When a hiker logs ascent and descent as separate Strava activities,
-        // both match the peak.  Keep whichever has more elevation gain (ascent).
-        const existing = await pool.query(
-          `SELECT id, total_elevation_gain FROM summits
-           WHERE user_id=$1 AND fourteener_id=$2
-             AND DATE(summited_at)=$3 AND NOT manual`,
-          [userId, peak.id, summitDate]
+        const [sLat, sLng] = startPoint || [null, null];
+        const [eLat, eLng] = endPoint || [null, null];
+
+        // ── Deduplicate split GPX uploads (ascent + descent as separate files) ──
+        // Find any existing summit for this peak within 24 hours, then check
+        // whether the start/finish points are within 400 m of each other.
+        // Handles both same-direction tracks and ascent/descent splits:
+        //   same-direction:  startA≈startB AND endA≈endB
+        //   split track:     startA≈endB   AND endA≈startB
+        const nearby = await pool.query(
+          `SELECT id, total_elevation_gain, start_lat, start_lng, end_lat, end_lng
+           FROM summits
+           WHERE user_id=$1 AND fourteener_id=$2 AND NOT manual
+             AND ABS(EXTRACT(EPOCH FROM (summited_at - $3))) <= 86400`,
+          [userId, peak.id, summitedAt]
         );
 
-        if (existing.rows.length > 0) {
-          if (newGain <= (existing.rows[0].total_elevation_gain || 0)) continue;
+        let matchedRow = null;
+        for (const row of nearby.rows) {
+          if (sLat == null || row.start_lat == null) continue;
+          const ss = haversineMeters(sLat, sLng, row.start_lat, row.start_lng);
+          const ee = haversineMeters(eLat, eLng, row.end_lat, row.end_lng);
+          const se = haversineMeters(sLat, sLng, row.end_lat, row.end_lng);
+          const es = haversineMeters(eLat, eLng, row.start_lat, row.start_lng);
+          if (
+            (ss < SUMMIT_RADIUS_METERS && ee < SUMMIT_RADIUS_METERS) ||
+            (se < SUMMIT_RADIUS_METERS && es < SUMMIT_RADIUS_METERS)
+          ) {
+            matchedRow = row;
+            break;
+          }
+        }
+
+        if (matchedRow) {
+          if (newGain <= (matchedRow.total_elevation_gain || 0)) continue;
 
           // Replace with the higher-gain (ascent) activity
           const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
@@ -193,8 +215,9 @@ router.post('/sync', requireAuth, async (req, res) => {
                elapsed_time=$4, moving_time=$5, distance=$6,
                total_elevation_gain=$7, avg_heartrate=$8, max_heartrate=$9,
                avg_speed=$10, weather_temp_f=$11, weather_wind_mph=$12,
-               weather_conditions=$13, trailhead_name=$14, route_name=$15
-             WHERE id=$16`,
+               weather_conditions=$13, trailhead_name=$14, route_name=$15,
+               start_lat=$16, start_lng=$17, end_lat=$18, end_lng=$19
+             WHERE id=$20`,
             [
               activity.id, activity.name, summitedAt,
               activity.elapsed_time, activity.moving_time, activity.distance,
@@ -203,12 +226,13 @@ router.post('/sync', requireAuth, async (req, res) => {
               weather?.tempHighF || null, weather?.windMph || null,
               weather?.conditions || null,
               th?.trailhead || null, th?.name || null,
-              existing.rows[0].id,
+              sLat, sLng, eLat, eLng,
+              matchedRow.id,
             ]
           );
           summitsFound.push(peak.name);
         } else {
-          // No existing record for this peak/day — insert fresh
+          // No nearby matching activity — insert fresh
           const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
           try {
             await pool.query(
@@ -217,8 +241,9 @@ router.post('/sync', requireAuth, async (req, res) => {
                  elapsed_time, moving_time, distance, total_elevation_gain,
                  avg_heartrate, max_heartrate, avg_speed,
                  weather_temp_f, weather_wind_mph, weather_conditions,
-                 trailhead_name, route_name)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                 trailhead_name, route_name,
+                 start_lat, start_lng, end_lat, end_lng)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
                ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
               [
                 userId, peak.id, activity.id, activity.name, summitedAt,
@@ -228,6 +253,7 @@ router.post('/sync', requireAuth, async (req, res) => {
                 weather?.tempHighF || null, weather?.windMph || null,
                 weather?.conditions || null,
                 th?.trailhead || null, th?.name || null,
+                sLat, sLng, eLat, eLng,
               ]
             );
             newSummits++;
