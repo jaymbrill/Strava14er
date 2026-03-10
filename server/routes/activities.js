@@ -22,7 +22,7 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const SUMMIT_RADIUS_METERS = 400;  // within 400 m of summit = summited
+const SUMMIT_RADIUS_METERS = 100;  // within 100 m of summit = summited
 const COMBINE_RADIUS_METERS = 500; // start/finish within 500 m → merge as one hike
 
 // Returns { matches, startPoint, endPoint } so the polyline is only decoded once.
