@@ -128,7 +128,6 @@ async function fetchWeather(lat, lng, date) {
 // ─── Shared sync logic ────────────────────────────────────────────────────────
 
 async function runSync(userId, accessToken, afterEpoch) {
-  const ACTIVITY_TYPES = ['Hike', 'Walk', 'Trail Run', 'Run', 'BackcountrySki', 'Snowshoe'];
   let page = 1;
   let allActivities = [];
   let fetched = true;
@@ -140,9 +139,7 @@ async function runSync(userId, accessToken, afterEpoch) {
     });
     const activities = actRes.data;
     if (!activities.length) { fetched = false; break; }
-    allActivities = allActivities.concat(
-      activities.filter(a => ACTIVITY_TYPES.includes(a.sport_type) || ACTIVITY_TYPES.includes(a.type))
-    );
+    allActivities = allActivities.concat(activities);
     if (activities.length < 200) break;
     page++;
   }
