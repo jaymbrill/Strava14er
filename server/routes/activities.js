@@ -125,178 +125,199 @@ async function fetchWeather(lat, lng, date) {
   }
 }
 
+// ─── Shared sync logic ────────────────────────────────────────────────────────
+
+async function runSync(userId, accessToken, afterEpoch) {
+  const ACTIVITY_TYPES = ['Hike', 'Walk', 'Trail Run', 'Run', 'BackcountrySki', 'Snowshoe'];
+  let page = 1;
+  let allActivities = [];
+  let fetched = true;
+
+  while (fetched) {
+    const actRes = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: { after: afterEpoch, page, per_page: 200 },
+    });
+    const activities = actRes.data;
+    if (!activities.length) { fetched = false; break; }
+    allActivities = allActivities.concat(activities.filter(a => ACTIVITY_TYPES.includes(a.type)));
+    if (activities.length < 200) break;
+    page++;
+  }
+
+  let newSummits = 0;
+  const summitsFound = [];
+
+  for (const activity of allActivities) {
+    const summitLine = activity.map?.summary_polyline;
+    if (!summitLine) continue;
+
+    const { matches, startPoint, endPoint } = findMatchedPeaks(summitLine);
+
+    for (const { peak } of matches) {
+      const summitedAt = new Date(activity.start_date);
+      const newGain = activity.total_elevation_gain || 0;
+
+      const th = startPoint
+        ? findNearestTrailhead(peak.id, startPoint[0], startPoint[1])
+        : null;
+
+      const [sLat, sLng] = startPoint || [null, null];
+      const [eLat, eLng] = endPoint || [null, null];
+
+      // ── Merge split GPX uploads (ascent + descent as separate files) ──────
+      // Find any existing summit for this peak within 24 hours, then check
+      // whether the start/finish points are within 500 m of each other.
+      // Handles both same-direction tracks and ascent/descent splits:
+      //   same-direction:  startA≈startB AND endA≈endB
+      //   split track:     startA≈endB   AND endA≈startB
+      // When merged, totals (distance, time, gain) are accumulated.
+      const nearby = await pool.query(
+        `SELECT id, strava_activity_id, activity_name, summited_at,
+                total_elevation_gain, distance, elapsed_time, moving_time,
+                avg_heartrate, max_heartrate, trailhead_name, route_name,
+                start_lat, start_lng, end_lat, end_lng
+         FROM summits
+         WHERE user_id=$1 AND fourteener_id=$2 AND NOT manual
+           AND ABS(EXTRACT(EPOCH FROM (summited_at - $3))) <= 86400`,
+        [userId, peak.id, summitedAt]
+      );
+
+      let matchedRow = null;
+      for (const row of nearby.rows) {
+        if (sLat == null || row.start_lat == null) continue;
+        const ss = haversineMeters(sLat, sLng, row.start_lat, row.start_lng);
+        const ee = haversineMeters(eLat, eLng, row.end_lat, row.end_lng);
+        const se = haversineMeters(sLat, sLng, row.end_lat, row.end_lng);
+        const es = haversineMeters(eLat, eLng, row.start_lat, row.start_lng);
+        if (
+          (ss < COMBINE_RADIUS_METERS && ee < COMBINE_RADIUS_METERS) ||
+          (se < COMBINE_RADIUS_METERS && es < COMBINE_RADIUS_METERS)
+        ) {
+          matchedRow = row;
+          break;
+        }
+      }
+
+      if (matchedRow) {
+        // Accumulate totals across both activities
+        const combinedGain    = newGain + (matchedRow.total_elevation_gain || 0);
+        const combinedDist    = (activity.distance || 0) + (matchedRow.distance || 0);
+        const combinedElapsed = (activity.elapsed_time || 0) + (matchedRow.elapsed_time || 0);
+        const combinedMoving  = (activity.moving_time || 0) + (matchedRow.moving_time || 0);
+        const combinedMaxHR   = Math.max(activity.max_heartrate || 0, matchedRow.max_heartrate || 0) || null;
+        // Weighted average heart rate by moving time
+        const newHR = activity.average_heartrate;
+        const exHR  = matchedRow.avg_heartrate;
+        const newMT = activity.moving_time || 0;
+        const exMT  = matchedRow.moving_time || 0;
+        const combinedAvgHR =
+          newHR && exHR ? (newHR * newMT + exHR * exMT) / (newMT + exMT || 1)
+          : newHR || exHR || null;
+        // Avg speed = total distance / total moving time
+        const combinedAvgSpeed = combinedMoving > 0 ? combinedDist / combinedMoving : null;
+
+        // Use the higher-gain activity as the canonical record (name/id/date/trailhead)
+        const isPrimaryNew  = newGain >= (matchedRow.total_elevation_gain || 0);
+        const canonicalId   = isPrimaryNew ? activity.id   : matchedRow.strava_activity_id;
+        const canonicalName = isPrimaryNew ? activity.name : matchedRow.activity_name;
+        const canonicalAt   = isPrimaryNew ? summitedAt    : matchedRow.summited_at;
+        const canonicalTH   = isPrimaryNew ? (th?.trailhead || null) : matchedRow.trailhead_name;
+        const canonicalRN   = isPrimaryNew ? (th?.name || null)      : matchedRow.route_name;
+
+        const weather = await fetchWeather(peak.lat, peak.lng, canonicalAt).catch(() => null);
+        await pool.query(
+          `UPDATE summits SET
+             strava_activity_id=$1, activity_name=$2, summited_at=$3,
+             elapsed_time=$4, moving_time=$5, distance=$6,
+             total_elevation_gain=$7, avg_heartrate=$8, max_heartrate=$9,
+             avg_speed=$10, weather_temp_f=$11, weather_wind_mph=$12,
+             weather_conditions=$13, trailhead_name=$14, route_name=$15,
+             start_lat=$16, start_lng=$17, end_lat=$18, end_lng=$19
+           WHERE id=$20`,
+          [
+            canonicalId, canonicalName, canonicalAt,
+            combinedElapsed, combinedMoving, combinedDist,
+            combinedGain, combinedAvgHR, combinedMaxHR,
+            combinedAvgSpeed,
+            weather?.tempHighF || null, weather?.windMph || null,
+            weather?.conditions || null,
+            canonicalTH, canonicalRN,
+            sLat, sLng, eLat, eLng,
+            matchedRow.id,
+          ]
+        );
+        summitsFound.push(peak.name);
+      } else {
+        // No nearby matching activity — insert fresh
+        const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
+        try {
+          await pool.query(
+            `INSERT INTO summits (
+               user_id, fourteener_id, strava_activity_id, activity_name, summited_at,
+               elapsed_time, moving_time, distance, total_elevation_gain,
+               avg_heartrate, max_heartrate, avg_speed,
+               weather_temp_f, weather_wind_mph, weather_conditions,
+               trailhead_name, route_name,
+               start_lat, start_lng, end_lat, end_lng)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+             ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
+            [
+              userId, peak.id, activity.id, activity.name, summitedAt,
+              activity.elapsed_time, activity.moving_time, activity.distance,
+              activity.total_elevation_gain, activity.average_heartrate || null,
+              activity.max_heartrate || null, activity.average_speed,
+              weather?.tempHighF || null, weather?.windMph || null,
+              weather?.conditions || null,
+              th?.trailhead || null, th?.name || null,
+              sLat, sLng, eLat, eLng,
+            ]
+          );
+          newSummits++;
+          summitsFound.push(peak.name);
+        } catch {
+          // constraint violation — skip
+        }
+      }
+    }
+  }
+
+  return { activitiesScanned: allActivities.length, newSummits, summitsFound };
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 router.post('/sync', requireAuth, async (req, res) => {
   const userId = req.session.userId;
-
   try {
     const accessToken = await getValidAccessToken(userId);
-
     const userRes = await pool.query('SELECT last_synced_at FROM users WHERE id=$1', [userId]);
     const lastSynced = userRes.rows[0]?.last_synced_at;
     const afterEpoch = lastSynced ? Math.floor(new Date(lastSynced).getTime() / 1000) : 0;
 
-    const ACTIVITY_TYPES = ['Hike', 'Walk', 'Trail Run', 'Run', 'BackcountrySki', 'Snowshoe'];
-    let page = 1;
-    let allActivities = [];
-    let fetched = true;
-
-    while (fetched) {
-      const actRes = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: { after: afterEpoch, page, per_page: 200 },
-      });
-      const activities = actRes.data;
-      if (!activities.length) { fetched = false; break; }
-      allActivities = allActivities.concat(activities.filter(a => ACTIVITY_TYPES.includes(a.type)));
-      if (activities.length < 200) break;
-      page++;
-    }
-
-    let newSummits = 0;
-    const summitsFound = [];
-
-    for (const activity of allActivities) {
-      const summitLine = activity.map?.summary_polyline;
-      if (!summitLine) continue;
-
-      const { matches, startPoint, endPoint } = findMatchedPeaks(summitLine);
-
-      for (const { peak } of matches) {
-        const summitedAt = new Date(activity.start_date);
-        const newGain = activity.total_elevation_gain || 0;
-
-        // Trailhead detection from GPS start
-        const th = startPoint
-          ? findNearestTrailhead(peak.id, startPoint[0], startPoint[1])
-          : null;
-
-        const [sLat, sLng] = startPoint || [null, null];
-        const [eLat, eLng] = endPoint || [null, null];
-
-        // ── Merge split GPX uploads (ascent + descent as separate files) ──────
-        // Find any existing summit for this peak within 24 hours, then check
-        // whether the start/finish points are within 500 m of each other.
-        // Handles both same-direction tracks and ascent/descent splits:
-        //   same-direction:  startA≈startB AND endA≈endB
-        //   split track:     startA≈endB   AND endA≈startB
-        // When merged, totals (distance, time, gain) are accumulated.
-        const nearby = await pool.query(
-          `SELECT id, strava_activity_id, activity_name, summited_at,
-                  total_elevation_gain, distance, elapsed_time, moving_time,
-                  avg_heartrate, max_heartrate, trailhead_name, route_name,
-                  start_lat, start_lng, end_lat, end_lng
-           FROM summits
-           WHERE user_id=$1 AND fourteener_id=$2 AND NOT manual
-             AND ABS(EXTRACT(EPOCH FROM (summited_at - $3))) <= 86400`,
-          [userId, peak.id, summitedAt]
-        );
-
-        let matchedRow = null;
-        for (const row of nearby.rows) {
-          if (sLat == null || row.start_lat == null) continue;
-          const ss = haversineMeters(sLat, sLng, row.start_lat, row.start_lng);
-          const ee = haversineMeters(eLat, eLng, row.end_lat, row.end_lng);
-          const se = haversineMeters(sLat, sLng, row.end_lat, row.end_lng);
-          const es = haversineMeters(eLat, eLng, row.start_lat, row.start_lng);
-          if (
-            (ss < COMBINE_RADIUS_METERS && ee < COMBINE_RADIUS_METERS) ||
-            (se < COMBINE_RADIUS_METERS && es < COMBINE_RADIUS_METERS)
-          ) {
-            matchedRow = row;
-            break;
-          }
-        }
-
-        if (matchedRow) {
-          // Accumulate totals across both activities
-          const combinedGain     = newGain + (matchedRow.total_elevation_gain || 0);
-          const combinedDist     = (activity.distance || 0) + (matchedRow.distance || 0);
-          const combinedElapsed  = (activity.elapsed_time || 0) + (matchedRow.elapsed_time || 0);
-          const combinedMoving   = (activity.moving_time || 0) + (matchedRow.moving_time || 0);
-          const combinedMaxHR    = Math.max(activity.max_heartrate || 0, matchedRow.max_heartrate || 0) || null;
-          // Weighted average heart rate by moving time
-          const newHR  = activity.average_heartrate;
-          const exHR   = matchedRow.avg_heartrate;
-          const newMT  = activity.moving_time || 0;
-          const exMT   = matchedRow.moving_time || 0;
-          const combinedAvgHR =
-            newHR && exHR ? (newHR * newMT + exHR * exMT) / (newMT + exMT || 1)
-            : newHR || exHR || null;
-          // Avg speed = total distance / total moving time
-          const combinedAvgSpeed = combinedMoving > 0 ? combinedDist / combinedMoving : null;
-
-          // Use the higher-gain activity as the canonical record (name/id/date/trailhead)
-          const isPrimaryNew = newGain >= (matchedRow.total_elevation_gain || 0);
-          const canonicalId   = isPrimaryNew ? activity.id   : matchedRow.strava_activity_id;
-          const canonicalName = isPrimaryNew ? activity.name : matchedRow.activity_name;
-          const canonicalAt   = isPrimaryNew ? summitedAt    : matchedRow.summited_at;
-          const canonicalTH   = isPrimaryNew ? (th?.trailhead || null) : matchedRow.trailhead_name;
-          const canonicalRN   = isPrimaryNew ? (th?.name || null)      : matchedRow.route_name;
-
-          const weather = await fetchWeather(peak.lat, peak.lng, canonicalAt).catch(() => null);
-          await pool.query(
-            `UPDATE summits SET
-               strava_activity_id=$1, activity_name=$2, summited_at=$3,
-               elapsed_time=$4, moving_time=$5, distance=$6,
-               total_elevation_gain=$7, avg_heartrate=$8, max_heartrate=$9,
-               avg_speed=$10, weather_temp_f=$11, weather_wind_mph=$12,
-               weather_conditions=$13, trailhead_name=$14, route_name=$15,
-               start_lat=$16, start_lng=$17, end_lat=$18, end_lng=$19
-             WHERE id=$20`,
-            [
-              canonicalId, canonicalName, canonicalAt,
-              combinedElapsed, combinedMoving, combinedDist,
-              combinedGain, combinedAvgHR, combinedMaxHR,
-              combinedAvgSpeed,
-              weather?.tempHighF || null, weather?.windMph || null,
-              weather?.conditions || null,
-              canonicalTH, canonicalRN,
-              sLat, sLng, eLat, eLng,
-              matchedRow.id,
-            ]
-          );
-          summitsFound.push(peak.name);
-        } else {
-          // No nearby matching activity — insert fresh
-          const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
-          try {
-            await pool.query(
-              `INSERT INTO summits (
-                 user_id, fourteener_id, strava_activity_id, activity_name, summited_at,
-                 elapsed_time, moving_time, distance, total_elevation_gain,
-                 avg_heartrate, max_heartrate, avg_speed,
-                 weather_temp_f, weather_wind_mph, weather_conditions,
-                 trailhead_name, route_name,
-                 start_lat, start_lng, end_lat, end_lng)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-               ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
-              [
-                userId, peak.id, activity.id, activity.name, summitedAt,
-                activity.elapsed_time, activity.moving_time, activity.distance,
-                activity.total_elevation_gain, activity.average_heartrate || null,
-                activity.max_heartrate || null, activity.average_speed,
-                weather?.tempHighF || null, weather?.windMph || null,
-                weather?.conditions || null,
-                th?.trailhead || null, th?.name || null,
-                sLat, sLng, eLat, eLng,
-              ]
-            );
-            newSummits++;
-            summitsFound.push(peak.name);
-          } catch {
-            // constraint violation — skip
-          }
-        }
-      }
-    }
-
+    const result = await runSync(userId, accessToken, afterEpoch);
     await pool.query('UPDATE users SET last_synced_at=NOW() WHERE id=$1', [userId]);
-    res.json({ success: true, activitiesScanned: allActivities.length, newSummits, summitsFound });
+    res.json({ success: true, ...result });
   } catch (err) {
     console.error('Sync error:', err.response?.data || err.message);
     res.status(500).json({ error: 'Sync failed', details: err.message });
+  }
+});
+
+// Recalculate all summits from scratch using the current combine methodology.
+// Deletes all non-manual summit records, then re-processes every Strava
+// activity from the beginning (afterEpoch = 0).
+router.post('/recalculate', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  try {
+    const accessToken = await getValidAccessToken(userId);
+    await pool.query('DELETE FROM summits WHERE user_id=$1 AND NOT manual', [userId]);
+    const result = await runSync(userId, accessToken, 0);
+    await pool.query('UPDATE users SET last_synced_at=NOW() WHERE id=$1', [userId]);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Recalculate error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Recalculate failed', details: err.message });
   }
 });
 
