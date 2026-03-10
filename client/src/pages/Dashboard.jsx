@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useAuth } from '../hooks/useAuth';
 import Header from '../components/Header';
 import PeakCard from '../components/PeakCard';
 import ProgressRing from '../components/ProgressRing';
@@ -14,6 +15,7 @@ const DIFFICULTIES = ['All', 'Class 1', 'Class 2', 'Class 3', 'Class 4'];
 const SORTS = ['Elevation ↓', 'Elevation ↑', 'Name A-Z', 'Date Summited'];
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [peaks, setPeaks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -120,9 +122,34 @@ export default function Dashboard() {
 
               {/* Text content */}
               <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-display font-bold text-white mb-1">
-                  Your 14er Journey
-                </h1>
+                {/* Personalized greeting with avatar */}
+                <div className="flex items-center gap-4 mb-3">
+                  {user?.profile_medium && (
+                    <div className="relative flex-shrink-0">
+                      <div className="absolute inset-0 rounded-full bg-co-gold/40 blur-xl scale-125" />
+                      <img
+                        src={user.profile_medium}
+                        alt={user.firstname}
+                        className="relative w-16 h-16 rounded-full border-[3px] border-co-gold object-cover shadow-xl shadow-co-gold/30"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-white leading-tight">
+                      {user?.firstname ? `${user.firstname}'s 14er Journey` : 'Your 14er Journey'}
+                    </h1>
+                    {(user?.city || user?.state) && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <svg className="w-3.5 h-3.5 text-co-gold/70" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm text-white/50">
+                          {[user.city, user.state].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <p className="text-white/50 text-sm mb-4">
                   {completed === 0
                     ? "Sync your Strava activities to detect your summits automatically."

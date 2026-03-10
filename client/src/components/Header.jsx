@@ -46,11 +46,14 @@ export default function Header() {
                 <div className="text-xs text-white/50">{user.city}{user.city && user.state ? ', ' : ''}{user.state}</div>
               </div>
               {user.profile_medium && (
-                <img
-                  src={user.profile_medium}
-                  alt="Profile"
-                  className="w-9 h-9 rounded-full border-2 border-co-gold/50"
-                />
+                <div className="relative flex-shrink-0">
+                  <div className="absolute inset-0 rounded-full bg-co-gold/30 blur-md scale-110" />
+                  <img
+                    src={user.profile_medium}
+                    alt="Profile"
+                    className="relative w-11 h-11 rounded-full border-2 border-co-gold object-cover shadow-lg shadow-co-gold/20"
+                  />
+                </div>
               )}
               <button
                 onClick={logout}
