@@ -638,6 +638,7 @@ const FOURTEENERS = [
     description: 'Remote Needle Mountain peak, typically accessed via the Durango & Silverton Narrow Gauge Railroad.',
     trailhead: 'Needleton (via Durango train)',
     bestSeason: 'July–September',
+    tripRadiusKm: 12, // train-access peak; approach/return days are separate Strava activities
   },
   {
     id: 'windom-peak',
@@ -651,6 +652,7 @@ const FOURTEENERS = [
     description: 'Needle Mountain peak in the Weminuche Wilderness. Often combined with Sunlight and Eolus.',
     trailhead: 'Needleton (via Durango train)',
     bestSeason: 'July–September',
+    tripRadiusKm: 12, // train-access peak; approach/return days are separate Strava activities
   },
   {
     id: 'sunlight-peak',
@@ -664,6 +666,7 @@ const FOURTEENERS = [
     description: 'Summit block requires Class 4 moves. Part of the Needle Mountains triple with Windom and Eolus.',
     trailhead: 'Needleton (via Durango train)',
     bestSeason: 'July–September',
+    tripRadiusKm: 12, // train-access peak; approach/return days are separate Strava activities
   },
   {
     id: 'handies-peak',
@@ -755,6 +758,7 @@ const FOURTEENERS = [
     description: 'Class 4 sub-peak of Eolus accessed via a technical ridge traverse.',
     trailhead: 'Needleton (via Durango train)',
     bestSeason: 'July–September',
+    tripRadiusKm: 12, // train-access peak; approach/return days are separate Strava activities
   },
   {
     id: 'stewart-peak',

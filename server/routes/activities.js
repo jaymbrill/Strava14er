@@ -22,6 +22,29 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 }
 
 const SUMMIT_RADIUS_METERS = 400; // within 400m of summit coords = summited
+const TRIP_WINDOW_DAYS = 3;       // look ±3 days around summit for related activities
+
+// For peaks with tripRadiusKm set (e.g. train-access Needleton peaks), scan allActivities
+// for approach/return day activities in the same geographic area and time window,
+// then concatenate their elapsed/moving times to produce a total trip duration.
+function findTripActivities(summitActivity, allActivities, peak) {
+  if (!peak.tripRadiusKm) return [summitActivity];
+  const tripRadiusMeters = peak.tripRadiusKm * 1000;
+  const summitDate = new Date(summitActivity.start_date);
+  const windowMs = TRIP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+  return allActivities.filter(a => {
+    if (a.id === summitActivity.id) return true; // always include the summit activity itself
+    if (Math.abs(new Date(a.start_date) - summitDate) > windowMs) return false;
+    if (!a.map?.summary_polyline) return false;
+    try {
+      const pts = polyline.decode(a.map.summary_polyline);
+      return pts.some(([lat, lng]) =>
+        haversineMeters(lat, lng, peak.lat, peak.lng) < tripRadiusMeters
+      );
+    } catch { return false; }
+  });
+}
 
 function findMatchedPeaks(activityPolyline) {
   if (!activityPolyline) return [];
@@ -153,6 +176,12 @@ router.post('/sync', requireAuth, async (req, res) => {
       for (const { peak } of matches) {
         const summitedAt = new Date(activity.start_date);
 
+        // Concatenate approach/return day activities for train-access peaks
+        const tripActivities = findTripActivities(activity, allActivities, peak);
+        const tripElapsedTime = tripActivities.reduce((s, a) => s + (a.elapsed_time || 0), 0);
+        const tripMovingTime  = tripActivities.reduce((s, a) => s + (a.moving_time  || 0), 0);
+        const tripActivityCount = tripActivities.length;
+
         // Fetch weather for the summit day (non-blocking)
         const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
 
@@ -160,8 +189,9 @@ router.post('/sync', requireAuth, async (req, res) => {
           await pool.query(
             `INSERT INTO summits (user_id, fourteener_id, strava_activity_id, activity_name, summited_at,
               elapsed_time, moving_time, distance, total_elevation_gain, avg_heartrate, max_heartrate,
-              avg_speed, weather_temp_f, weather_wind_mph, weather_conditions)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+              avg_speed, weather_temp_f, weather_wind_mph, weather_conditions,
+              trip_elapsed_time, trip_moving_time, trip_activity_count)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
              ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
             [
               userId, peak.id, activity.id, activity.name, summitedAt,
@@ -170,6 +200,7 @@ router.post('/sync', requireAuth, async (req, res) => {
               activity.max_heartrate || null, activity.average_speed,
               weather?.tempHighF || null, weather?.windMph || null,
               weather?.conditions || null,
+              tripElapsedTime || null, tripMovingTime || null, tripActivityCount,
             ]
           );
           newSummits++;

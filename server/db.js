@@ -58,6 +58,13 @@ const initDb = async () => {
 
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
     `);
+
+    // Add trip-concatenation columns if not already present (safe to re-run)
+    await client.query(`
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS trip_elapsed_time INTEGER;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS trip_moving_time INTEGER;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS trip_activity_count INTEGER DEFAULT 1;
+    `);
     console.log('✅ Database initialized');
   } finally {
     client.release();

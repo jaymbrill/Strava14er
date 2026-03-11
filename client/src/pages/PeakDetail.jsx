@@ -10,6 +10,15 @@ function formatTime(seconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function formatTripDuration(seconds) {
+  if (!seconds) return '—';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function formatPace(movingTime, distanceMeters) {
   if (!movingTime || !distanceMeters || distanceMeters === 0) return '—';
   const miles = distanceMeters / 1609.34;
@@ -129,6 +138,17 @@ function SummitHistoryCard({ summit, onDelete }) {
           </div>
         )}
       </div>
+
+      {/* Total trip time (multi-day peaks like Needleton train access) */}
+      {summit.trip_activity_count > 1 && summit.trip_elapsed_time && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 px-4 py-3 bg-co-gold/8 border border-co-gold/25 rounded-xl text-sm">
+          <span className="text-co-gold font-semibold">🎒 Total Trip</span>
+          <span className="text-white font-bold">{formatTripDuration(summit.trip_elapsed_time)}</span>
+          <span className="text-white/40">elapsed across {summit.trip_activity_count} activities</span>
+          <span className="text-white/40">·</span>
+          <span className="text-white/50">Summit day: {formatTime(summit.elapsed_time)}</span>
+        </div>
+      )}
 
       {/* Weather */}
       {(summit.weather_conditions || summit.weather_temp_f) && (
@@ -277,8 +297,17 @@ export default function PeakDetail() {
         {/* Quick stats (from latest summit) */}
         {completed && latest && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <StatBlock icon="⏱️" label="Total Time" value={formatTime(latest.elapsed_time)} sub="elapsed" />
-            <StatBlock icon="📏" label="Distance" value={formatMiles(latest.distance)} sub="round trip" />
+            {latest.trip_activity_count > 1 && latest.trip_elapsed_time ? (
+              <StatBlock
+                icon="🎒"
+                label="Total Trip"
+                value={formatTripDuration(latest.trip_elapsed_time)}
+                sub={`${latest.trip_activity_count} activities`}
+              />
+            ) : (
+              <StatBlock icon="⏱️" label="Total Time" value={formatTime(latest.elapsed_time)} sub="elapsed" />
+            )}
+            <StatBlock icon="📏" label="Distance" value={formatMiles(latest.distance)} sub="summit day" />
             <StatBlock icon="📈" label="Elev Gain" value={formatElevGain(latest.total_elevation_gain)} sub="feet" />
             <StatBlock icon="⚡" label="Pace" value={formatPace(latest.moving_time, latest.distance)} sub="moving avg" />
           </div>
