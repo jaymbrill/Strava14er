@@ -71,7 +71,13 @@ router.get('/strava/callback', async (req, res) => {
     req.session.userId = result.rows[0].id;
     req.session.stravaId = athlete.id;
 
-    res.redirect(`${process.env.APP_URL || ''}/dashboard`);
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${process.env.APP_URL || ''}/?error=auth_failed`);
+      }
+      res.redirect(`${process.env.APP_URL || ''}/dashboard`);
+    });
   } catch (err) {
     console.error('OAuth error:', err.response?.data || err.message);
     res.redirect(`${process.env.APP_URL || ''}/?error=auth_failed`);
