@@ -93,6 +93,7 @@ router.post('/logout', (req, res) => {
 
 // Get current session user info
 router.get('/me', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   if (!req.session?.userId) {
     return res.json({ authenticated: false });
   }
