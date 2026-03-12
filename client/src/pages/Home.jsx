@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import MountainSkyline from '../components/MountainSkyline';
+import ColoradoFlagLogo from '../components/ColoradoFlagLogo';
 
 const PEAKS = [
   'Mount Elbert', 'Longs Peak', 'Pikes Peak', 'Maroon Bells',
@@ -32,7 +33,16 @@ export default function Home() {
   }));
 
   return (
-    <div className="min-h-screen bg-mountain-gradient relative overflow-hidden flex flex-col">
+    <div
+      className="min-h-screen relative overflow-hidden flex flex-col"
+      style={{
+        background: [
+          'linear-gradient(to bottom, rgba(10,22,40,0.75) 0%, rgba(26,45,79,0.80) 50%, rgba(27,67,50,0.88) 100%)',
+          "url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg') center/cover no-repeat fixed",
+        ].join(', '),
+        backgroundColor: '#0a1628',
+      }}
+    >
       {/* Snowflakes */}
       {snowflakes.map((style, i) => <Snowflake key={i} style={style} />)}
 
@@ -57,13 +67,10 @@ export default function Home() {
       {/* Header bar */}
       <header className="relative z-10 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <svg viewBox="0 0 40 32" className="w-10 h-8" fill="none">
-            <path d="M20 2 L38 30 L2 30 Z" fill="#FFC72C" />
-            <path d="M20 2 L28 14 L20 10 L14 16 L20 2Z" fill="white" opacity="0.9" />
-          </svg>
+          <ColoradoFlagLogo className="w-14 h-[37px]" />
           <div>
             <div className="font-display text-co-gold font-bold text-lg leading-none">Colorado</div>
-            <div className="text-xs text-white/50 uppercase tracking-widest">14er Tracker</div>
+            <div className="text-xs text-white/50 uppercase tracking-widest">Summit Log</div>
           </div>
         </div>
         {/* Colorado flag stripes */}

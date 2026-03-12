@@ -59,6 +59,17 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
     `);
     console.log('✅ Database initialized');
+
+    // Migrations
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS background_image TEXT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS trailhead_name TEXT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS route_name TEXT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS start_lat FLOAT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS start_lng FLOAT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS end_lat FLOAT;
+      ALTER TABLE summits ADD COLUMN IF NOT EXISTS end_lng FLOAT;
+    `);
   } finally {
     client.release();
   }

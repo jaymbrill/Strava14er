@@ -13,11 +13,14 @@ const FILTERS = ['All', 'Completed', 'Not Completed'];
 const DIFFICULTIES = ['All', 'Class 1', 'Class 2', 'Class 3', 'Class 4'];
 const SORTS = ['Elevation ↓', 'Elevation ↑', 'Name A-Z', 'Date Summited'];
 
+const BG_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Longs_Peak_from_Chasm_Lake_Trail.jpg/1920px-Longs_Peak_from_Chasm_Lake_Trail.jpg';
+
 export default function Dashboard() {
   const [peaks, setPeaks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [showManual, setShowManual] = useState(false);
 
@@ -56,6 +59,20 @@ export default function Dashboard() {
       setSyncResult({ error: err.response?.data?.error || 'Sync failed.' });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    setSyncResult(null);
+    try {
+      const res = await axios.post('/api/activities/recalculate', {}, { withCredentials: true });
+      setSyncResult({ ...res.data, recalculated: true });
+      await fetchData();
+    } catch (err) {
+      setSyncResult({ error: err.response?.data?.error || 'Recalculate failed.' });
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -101,7 +118,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-co-peak via-[#0f1e35] to-[#0a1628]">
+    <div className="min-h-screen relative" style={{ backgroundColor: '#0a1628' }}>
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: `url(${BG_URL})` }}
+      />
+      {/* Dark gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'linear-gradient(to bottom, rgba(10,22,40,0.82) 0%, rgba(15,30,53,0.88) 40%, rgba(10,22,40,0.95) 100%)' }}
+      />
+      {/* All page content sits above the background layers */}
+      <div className="relative z-10">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -146,7 +175,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={handleSync}
-                    disabled={syncing}
+                    disabled={syncing || recalculating}
                     className="btn-primary flex items-center gap-2 text-sm py-2.5"
                   >
                     {syncing ? (
@@ -167,6 +196,29 @@ export default function Dashboard() {
                     )}
                   </button>
                   <button
+                    onClick={handleRecalculate}
+                    disabled={syncing || recalculating}
+                    title="Re-process all Strava activities from scratch using the latest combine methodology"
+                    className="btn-secondary flex items-center gap-2 text-sm py-2.5"
+                  >
+                    {recalculating ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Recalculating…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-3M16 3l3 3-8 8H8v-3l8-8z" />
+                        </svg>
+                        Recalculate
+                      </>
+                    )}
+                  </button>
+                  <button
                     onClick={() => setShowManual(true)}
                     className="btn-secondary text-sm py-2.5 flex items-center gap-2"
                   >
@@ -175,6 +227,7 @@ export default function Dashboard() {
                     </svg>
                     Add Manually
                   </button>
+
                 </div>
 
                 {/* Sync result */}
@@ -188,10 +241,10 @@ export default function Dashboard() {
                       syncResult.error
                     ) : (
                       <>
-                        ✓ Scanned {syncResult.activitiesScanned} activities.
+                        ✓ {syncResult.recalculated ? 'Recalculated' : 'Scanned'} {syncResult.activitiesScanned} activities.
                         {syncResult.newSummits > 0
-                          ? ` Found ${syncResult.newSummits} new summit${syncResult.newSummits > 1 ? 's' : ''}: ${syncResult.summitsFound.join(', ')}!`
-                          : ' No new summits found.'}
+                          ? ` Found ${syncResult.newSummits} summit${syncResult.newSummits > 1 ? 's' : ''}: ${syncResult.summitsFound.join(', ')}!`
+                          : syncResult.recalculated ? ' All summits up to date.' : ' No new summits found.'}
                       </>
                     )}
                   </div>
@@ -351,6 +404,7 @@ export default function Dashboard() {
           onAdded={fetchData}
         />
       )}
+      </div>
     </div>
   );
 }

@@ -8,6 +8,9 @@ const { initDb, pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Render's reverse proxy so secure cookies work over HTTPS
+app.set('trust proxy', 1);
+
 // ─── Session Store ────────────────────────────────────────────────────────────
 let sessionStore;
 if (process.env.DATABASE_URL) {
@@ -38,7 +41,7 @@ app.use(
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax', // 'strict' breaks OAuth redirect chains in Safari/Firefox
     },
   })
 );
@@ -47,6 +50,7 @@ app.use(
 app.use('/auth', require('./routes/auth'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/fourteeners', require('./routes/fourteeners'));
+app.use('/api/feedback', require('./routes/feedback'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -68,7 +72,7 @@ const start = async () => {
     await initDb();
   }
   app.listen(PORT, () => {
-    console.log(`🏔️  Colorado 14er Tracker running on port ${PORT}`);
+    console.log(`🏔️  Colorado Summit Log running on port ${PORT}`);
   });
 };
 

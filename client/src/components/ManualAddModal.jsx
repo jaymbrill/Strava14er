@@ -8,7 +8,7 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const unclimbed = peaks.filter(p => !p.completed).sort((a, b) => a.name.localeCompare(b.name));
+  const sortedPeaks = [...peaks].sort((a, b) => a.name.localeCompare(b.name));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,7 +39,7 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
       <div className="relative bg-co-peak border border-white/15 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-slide-up">
         <h2 className="text-xl font-bold text-white mb-1">Add Summit Manually</h2>
         <p className="text-sm text-white/50 mb-5">
-          Summited without Strava? Add it here.
+          Summited without Strava, or want to log another ascent? Add it here.
         </p>
 
         {error && (
@@ -54,12 +54,12 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
             <select
               value={selectedPeak}
               onChange={e => setSelectedPeak(e.target.value)}
-              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-co-gold/50 focus:bg-white/12"
+              className="w-full bg-white border border-white/20 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
             >
-              <option value="" className="bg-gray-900">Select a peak…</option>
-              {unclimbed.map(p => (
-                <option key={p.id} value={p.id} className="bg-gray-900">
-                  {p.name} — {p.elevation.toLocaleString()}′
+              <option value="">Select a peak…</option>
+              {sortedPeaks.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.completed ? '✓ ' : ''}{p.name} — {p.elevation.toLocaleString()}′
                 </option>
               ))}
             </select>
@@ -72,7 +72,7 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
               value={date}
               onChange={e => setDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-co-gold/50 focus:bg-white/12"
+              className="w-full bg-white border border-white/20 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
             />
           </div>
 
