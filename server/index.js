@@ -8,6 +8,9 @@ const { initDb, pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Render's reverse proxy so secure cookies work over HTTPS
+app.set('trust proxy', 1);
+
 // ─── Session Store ────────────────────────────────────────────────────────────
 let sessionStore;
 if (process.env.DATABASE_URL) {
