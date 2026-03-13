@@ -460,7 +460,7 @@ router.post('/recalculate', requireAuth, async (req, res) => {
 // Manually add a summit
 router.post('/summit/manual', requireAuth, async (req, res) => {
   const userId = req.session.userId;
-  const { fourteenerId, summitedAt, notes } = req.body;
+  const { fourteenerId, summitedAt, notes, elapsedTime } = req.body;
 
   if (!fourteenerId || !summitedAt) {
     return res.status(400).json({ error: 'fourteenerId and summitedAt required' });
@@ -473,10 +473,11 @@ router.post('/summit/manual', requireAuth, async (req, res) => {
     const weather = await fetchWeather(peak.lat, peak.lng, new Date(summitedAt)).catch(() => null);
     await pool.query(
       `INSERT INTO summits (user_id, fourteener_id, summited_at, manual, notes,
-        weather_temp_f, weather_wind_mph, weather_conditions)
-       VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7)`,
+        elapsed_time, weather_temp_f, weather_wind_mph, weather_conditions)
+       VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7,$8)`,
       [
         userId, fourteenerId, new Date(summitedAt), notes || null,
+        elapsedTime || null,
         weather?.tempHighF || null, weather?.windMph || null, weather?.conditions || null,
       ]
     );

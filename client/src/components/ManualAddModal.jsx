@@ -4,6 +4,8 @@ import axios from 'axios';
 export default function ManualAddModal({ peaks, onClose, onAdded }) {
   const [selectedPeak, setSelectedPeak] = useState('');
   const [date, setDate] = useState('');
+  const [hours, setHours] = useState('');
+  const [minutes, setMinutes] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,9 +21,10 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
     setLoading(true);
     setError('');
     try {
+      const elapsedTime = (parseInt(hours || 0) * 3600) + (parseInt(minutes || 0) * 60) || null;
       await axios.post(
         '/api/activities/summit/manual',
-        { fourteenerId: selectedPeak, summitedAt: date, notes },
+        { fourteenerId: selectedPeak, summitedAt: date, notes, elapsedTime },
         { withCredentials: true }
       );
       onAdded();
@@ -74,6 +77,32 @@ export default function ManualAddModal({ peaks, onClose, onAdded }) {
               max={new Date().toISOString().split('T')[0]}
               className="w-full bg-white border border-white/20 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/60 mb-1.5">Round-trip time (optional)</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min="0"
+                max="23"
+                value={hours}
+                onChange={e => setHours(e.target.value)}
+                placeholder="0"
+                className="w-20 bg-white border border-white/20 rounded-xl px-3 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
+              />
+              <span className="text-white/50 text-sm">hr</span>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={minutes}
+                onChange={e => setMinutes(e.target.value)}
+                placeholder="0"
+                className="w-20 bg-white border border-white/20 rounded-xl px-3 py-3 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-co-gold/60"
+              />
+              <span className="text-white/50 text-sm">min</span>
+            </div>
           </div>
 
           <div>

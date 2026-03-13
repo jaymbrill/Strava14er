@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import FeedbackModal from './FeedbackModal';
 import ColoradoFlagLogo from './ColoradoFlagLogo';
 
 export default function Header() {
@@ -67,8 +66,8 @@ export default function Header() {
                   className="w-9 h-9 rounded-full border-2 border-co-gold/50"
                 />
               )}
-              <button
-                onClick={() => setShowFeedback(true)}
+              <a
+                href="mailto:jay.m.brill@gmail.com"
                 className="text-xs text-white/80 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/20 hover:border-white/40 hover:bg-white/10 flex items-center gap-1.5"
                 title="Send feedback"
               >
@@ -77,7 +76,7 @@ export default function Header() {
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Feedback
-              </button>
+              </a>
               <button
                 onClick={logout}
                 className="text-xs text-white/50 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/10"
@@ -95,7 +94,6 @@ export default function Header() {
         <div className="flex-1 bg-co-red" />
       </div>
 
-      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </header>
   );
 }
