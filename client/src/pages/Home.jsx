@@ -115,7 +115,7 @@ export default function Home() {
             </svg>
             Connect with Strava
           </a>
-          <span className="text-white/30 text-sm">Free · No credit card · Read-only access</span>
+          <span className="text-white/30 text-sm">Free · Read-only access</span>
         </div>
 
         {/* Peak ticker */}
