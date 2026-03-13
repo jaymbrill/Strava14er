@@ -49,6 +49,35 @@ const initDb = async () => {
         UNIQUE(user_id, fourteener_id, strava_activity_id)
       );
 
+      CREATE TABLE IF NOT EXISTS thirteener_summits (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        thirteener_id VARCHAR(100) NOT NULL,
+        strava_activity_id BIGINT,
+        activity_name VARCHAR(500),
+        summited_at TIMESTAMP,
+        elapsed_time INTEGER,
+        moving_time INTEGER,
+        distance FLOAT,
+        total_elevation_gain FLOAT,
+        avg_heartrate FLOAT,
+        max_heartrate FLOAT,
+        avg_speed FLOAT,
+        manual BOOLEAN DEFAULT FALSE,
+        notes TEXT,
+        weather_temp_f FLOAT,
+        weather_wind_mph FLOAT,
+        weather_conditions VARCHAR(255),
+        trailhead_name TEXT,
+        route_name TEXT,
+        start_lat FLOAT,
+        start_lng FLOAT,
+        end_lat FLOAT,
+        end_lng FLOAT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, thirteener_id, strava_activity_id)
+      );
+
       CREATE TABLE IF NOT EXISTS session (
         sid VARCHAR NOT NULL COLLATE "default",
         sess JSON NOT NULL,

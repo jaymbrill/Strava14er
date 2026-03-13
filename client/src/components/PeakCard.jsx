@@ -46,13 +46,13 @@ const difficultyColors = {
   'Class 5': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 };
 
-export default function PeakCard({ peak }) {
+export default function PeakCard({ peak, basePath = '/peak' }) {
   const { id, name, elevation, range, difficulty, completed, summit, trailhead } = peak;
   const elevFt = elevation.toLocaleString();
 
   return (
     <Link
-      to={`/peak/${id}`}
+      to={`${basePath}/${id}`}
       className={`block rounded-2xl border transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl overflow-hidden
         ${completed
           ? 'bg-gradient-to-br from-white/8 to-white/4 border-co-gold/30 hover:border-co-gold/60'
