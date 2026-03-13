@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import PeakDetail from './pages/PeakDetail';
+import ThirteenerDashboard from './pages/ThirteenerDashboard';
+import ThirteenerDetail from './pages/ThirteenerDetail';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -19,6 +21,8 @@ function AppRoutes() {
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/peak/:id" element={<ProtectedRoute><PeakDetail /></ProtectedRoute>} />
+      <Route path="/thirteeners" element={<ProtectedRoute><ThirteenerDashboard /></ProtectedRoute>} />
+      <Route path="/thirteener/:id" element={<ProtectedRoute><ThirteenerDetail /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

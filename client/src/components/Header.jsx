@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import FeedbackModal from './FeedbackModal';
 import ColoradoFlagLogo from './ColoradoFlagLogo';
@@ -7,6 +7,10 @@ import ColoradoFlagLogo from './ColoradoFlagLogo';
 export default function Header() {
   const { user, logout } = useAuth();
   const [showFeedback, setShowFeedback] = useState(false);
+  const location = useLocation();
+
+  const is13ers = location.pathname.startsWith('/thirteener');
+  const is14ers = !is13ers && (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/peak'));
 
   return (
     <header className="sticky top-0 z-50 bg-co-peak/90 backdrop-blur-md border-b border-white/10">
@@ -20,6 +24,32 @@ export default function Header() {
               <div className="text-xs text-white/60 uppercase tracking-widest">Summit Log</div>
             </div>
           </Link>
+
+          {/* Peak type navigation tabs */}
+          {user && (
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+              <Link
+                to="/dashboard"
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  is14ers
+                    ? 'bg-co-gold text-co-peak shadow'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                14ers
+              </Link>
+              <Link
+                to="/thirteeners"
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  is13ers
+                    ? 'bg-co-blue text-white shadow'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                13ers
+              </Link>
+            </div>
+          )}
 
           {/* User info */}
           {user && (
@@ -69,4 +99,3 @@ export default function Header() {
     </header>
   );
 }
-

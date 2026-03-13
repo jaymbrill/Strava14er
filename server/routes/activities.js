@@ -4,6 +4,7 @@ const polyline = require('@mapbox/polyline');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { OFFICIAL_FOURTEENERS } = require('../data/fourteeners');
+const { OFFICIAL_THIRTEENERS } = require('../data/thirteeners');
 const { TRAILHEADS } = require('../data/trailheads');
 
 const router = express.Router();
@@ -25,17 +26,17 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 const SUMMIT_RADIUS_METERS = 300;  // within 300 m of summit = summited
 const COMBINE_RADIUS_METERS = 500; // start/finish within 500 m → merge as one hike
 
-// Returns { matches, startPoint, endPoint } so the polyline is only decoded once.
+// Returns { fourteenerMatches, thirteenerMatches, startPoint, endPoint } decoded once.
 function findMatchedPeaks(activityPolyline) {
-  if (!activityPolyline) return { matches: [], startPoint: null, endPoint: null };
+  if (!activityPolyline) return { fourteenerMatches: [], thirteenerMatches: [], startPoint: null, endPoint: null };
   let points;
   try {
     points = polyline.decode(activityPolyline); // [[lat, lng], ...]
   } catch {
-    return { matches: [], startPoint: null, endPoint: null };
+    return { fourteenerMatches: [], thirteenerMatches: [], startPoint: null, endPoint: null };
   }
 
-  const matches = [];
+  const fourteenerMatches = [];
   for (const peak of OFFICIAL_FOURTEENERS) {
     let closest = Infinity;
     for (const [lat, lng] of points) {
@@ -44,10 +45,29 @@ function findMatchedPeaks(activityPolyline) {
       if (d < SUMMIT_RADIUS_METERS) break; // early exit once confirmed
     }
     if (closest < SUMMIT_RADIUS_METERS) {
-      matches.push({ peak, distanceMeters: closest });
+      fourteenerMatches.push({ peak, distanceMeters: closest });
     }
   }
-  return { matches, startPoint: points[0] || null, endPoint: points[points.length - 1] || null };
+
+  const thirteenerMatches = [];
+  for (const peak of OFFICIAL_THIRTEENERS) {
+    let closest = Infinity;
+    for (const [lat, lng] of points) {
+      const d = haversineMeters(lat, lng, peak.lat, peak.lng);
+      if (d < closest) closest = d;
+      if (d < SUMMIT_RADIUS_METERS) break;
+    }
+    if (closest < SUMMIT_RADIUS_METERS) {
+      thirteenerMatches.push({ peak, distanceMeters: closest });
+    }
+  }
+
+  return {
+    fourteenerMatches,
+    thirteenerMatches,
+    startPoint: points[0] || null,
+    endPoint: points[points.length - 1] || null,
+  };
 }
 
 // Find the closest known trailhead for a peak to the hike's start GPS point.
@@ -151,9 +171,9 @@ async function runSync(userId, accessToken, afterEpoch) {
     const summitLine = activity.map?.summary_polyline;
     if (!summitLine) continue;
 
-    const { matches, startPoint, endPoint } = findMatchedPeaks(summitLine);
+    const { fourteenerMatches, thirteenerMatches, startPoint, endPoint } = findMatchedPeaks(summitLine);
 
-    for (const { peak } of matches) {
+    for (const { peak } of fourteenerMatches) {
       const summitedAt = new Date(activity.start_date);
       const newGain = activity.total_elevation_gain || 0;
 
@@ -279,6 +299,122 @@ async function runSync(userId, accessToken, afterEpoch) {
         }
       }
     }
+
+    // ── Process 13er matches ──────────────────────────────────────────────
+    for (const { peak } of thirteenerMatches) {
+      const summitedAt = new Date(activity.start_date);
+      const newGain = activity.total_elevation_gain || 0;
+
+      const th = startPoint
+        ? findNearestTrailhead(peak.id, startPoint[0], startPoint[1])
+        : null;
+
+      const [sLat, sLng] = startPoint || [null, null];
+      const [eLat, eLng] = endPoint || [null, null];
+
+      const nearby13 = await pool.query(
+        `SELECT id, strava_activity_id, activity_name, summited_at,
+                total_elevation_gain, distance, elapsed_time, moving_time,
+                avg_heartrate, max_heartrate, trailhead_name, route_name,
+                start_lat, start_lng, end_lat, end_lng
+         FROM thirteener_summits
+         WHERE user_id=$1 AND thirteener_id=$2 AND NOT manual
+           AND ABS(EXTRACT(EPOCH FROM (summited_at - $3))) <= 86400`,
+        [userId, peak.id, summitedAt]
+      );
+
+      let matchedRow13 = null;
+      for (const row of nearby13.rows) {
+        if (sLat == null || row.start_lat == null) continue;
+        const ss = haversineMeters(sLat, sLng, row.start_lat, row.start_lng);
+        const ee = haversineMeters(eLat, eLng, row.end_lat, row.end_lng);
+        const se = haversineMeters(sLat, sLng, row.end_lat, row.end_lng);
+        const es = haversineMeters(eLat, eLng, row.start_lat, row.start_lng);
+        if (
+          (ss < COMBINE_RADIUS_METERS && ee < COMBINE_RADIUS_METERS) ||
+          (se < COMBINE_RADIUS_METERS && es < COMBINE_RADIUS_METERS)
+        ) {
+          matchedRow13 = row;
+          break;
+        }
+      }
+
+      if (matchedRow13) {
+        const combinedGain    = newGain + (matchedRow13.total_elevation_gain || 0);
+        const combinedDist    = (activity.distance || 0) + (matchedRow13.distance || 0);
+        const combinedElapsed = (activity.elapsed_time || 0) + (matchedRow13.elapsed_time || 0);
+        const combinedMoving  = (activity.moving_time || 0) + (matchedRow13.moving_time || 0);
+        const combinedMaxHR   = Math.max(activity.max_heartrate || 0, matchedRow13.max_heartrate || 0) || null;
+        const newHR = activity.average_heartrate;
+        const exHR  = matchedRow13.avg_heartrate;
+        const newMT = activity.moving_time || 0;
+        const exMT  = matchedRow13.moving_time || 0;
+        const combinedAvgHR =
+          newHR && exHR ? (newHR * newMT + exHR * exMT) / (newMT + exMT || 1)
+          : newHR || exHR || null;
+        const combinedAvgSpeed = combinedMoving > 0 ? combinedDist / combinedMoving : null;
+
+        const isPrimaryNew  = newGain >= (matchedRow13.total_elevation_gain || 0);
+        const canonicalId   = isPrimaryNew ? activity.id   : matchedRow13.strava_activity_id;
+        const canonicalName = isPrimaryNew ? activity.name : matchedRow13.activity_name;
+        const canonicalAt   = isPrimaryNew ? summitedAt    : matchedRow13.summited_at;
+        const canonicalTH   = isPrimaryNew ? (th?.trailhead || null) : matchedRow13.trailhead_name;
+        const canonicalRN   = isPrimaryNew ? (th?.name || null)      : matchedRow13.route_name;
+
+        const weather = await fetchWeather(peak.lat, peak.lng, canonicalAt).catch(() => null);
+        await pool.query(
+          `UPDATE thirteener_summits SET
+             strava_activity_id=$1, activity_name=$2, summited_at=$3,
+             elapsed_time=$4, moving_time=$5, distance=$6,
+             total_elevation_gain=$7, avg_heartrate=$8, max_heartrate=$9,
+             avg_speed=$10, weather_temp_f=$11, weather_wind_mph=$12,
+             weather_conditions=$13, trailhead_name=$14, route_name=$15,
+             start_lat=$16, start_lng=$17, end_lat=$18, end_lng=$19
+           WHERE id=$20`,
+          [
+            canonicalId, canonicalName, canonicalAt,
+            combinedElapsed, combinedMoving, combinedDist,
+            combinedGain, combinedAvgHR, combinedMaxHR,
+            combinedAvgSpeed,
+            weather?.tempHighF || null, weather?.windMph || null,
+            weather?.conditions || null,
+            canonicalTH, canonicalRN,
+            sLat, sLng, eLat, eLng,
+            matchedRow13.id,
+          ]
+        );
+        summitsFound.push(peak.name);
+      } else {
+        const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
+        try {
+          await pool.query(
+            `INSERT INTO thirteener_summits (
+               user_id, thirteener_id, strava_activity_id, activity_name, summited_at,
+               elapsed_time, moving_time, distance, total_elevation_gain,
+               avg_heartrate, max_heartrate, avg_speed,
+               weather_temp_f, weather_wind_mph, weather_conditions,
+               trailhead_name, route_name,
+               start_lat, start_lng, end_lat, end_lng)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+             ON CONFLICT (user_id, thirteener_id, strava_activity_id) DO NOTHING`,
+            [
+              userId, peak.id, activity.id, activity.name, summitedAt,
+              activity.elapsed_time, activity.moving_time, activity.distance,
+              activity.total_elevation_gain, activity.average_heartrate || null,
+              activity.max_heartrate || null, activity.average_speed,
+              weather?.tempHighF || null, weather?.windMph || null,
+              weather?.conditions || null,
+              th?.trailhead || null, th?.name || null,
+              sLat, sLng, eLat, eLng,
+            ]
+          );
+          newSummits++;
+          summitsFound.push(peak.name);
+        } catch {
+          // constraint violation — skip
+        }
+      }
+    }
   }
 
   return { activitiesScanned: allActivities.length, newSummits, summitsFound };
@@ -311,6 +447,7 @@ router.post('/recalculate', requireAuth, async (req, res) => {
   try {
     const accessToken = await getValidAccessToken(userId);
     await pool.query('DELETE FROM summits WHERE user_id=$1 AND NOT manual', [userId]);
+    await pool.query('DELETE FROM thirteener_summits WHERE user_id=$1 AND NOT manual', [userId]);
     const result = await runSync(userId, accessToken, 0);
     await pool.query('UPDATE users SET last_synced_at=NOW() WHERE id=$1', [userId]);
     res.json({ success: true, ...result });
