@@ -248,7 +248,37 @@ async function runSync(userId, accessToken, afterEpoch) {
         );
         summitsFound.push(peak.name);
       } else {
-        // No nearby matching activity — insert fresh
+        // No nearby matching activity for this same peak.
+        // Check for a sequential chain: another same-day activity (any peak) that
+        // ended where this one started AND started where this one ended — i.e., the
+        // user split a single round trip into two Strava activities (common for
+        // paired peaks like Redcloud → Sunshine).  If found, fold that leg's time
+        // into this summit so the total reflects the full outing.
+        let insertElapsed = activity.elapsed_time || 0;
+        let insertMoving  = activity.moving_time  || 0;
+
+        if (sLat != null && eLat != null) {
+          const chainRows = await pool.query(
+            `SELECT elapsed_time, moving_time, start_lat, start_lng, end_lat, end_lng
+               FROM summits
+              WHERE user_id=$1 AND NOT manual
+                AND ABS(EXTRACT(EPOCH FROM (summited_at - $2))) <= 86400
+                AND (elapsed_time IS NOT NULL OR moving_time IS NOT NULL)`,
+            [userId, summitedAt]
+          );
+          for (const row of chainRows.rows) {
+            if (row.start_lat == null || row.end_lat == null) continue;
+            // chain: row.end ≈ current.start  AND  row.start ≈ current.end
+            const chainSE = haversineMeters(sLat, sLng, row.end_lat,   row.end_lng);
+            const chainES = haversineMeters(eLat, eLng, row.start_lat, row.start_lng);
+            if (chainSE < COMBINE_RADIUS_METERS && chainES < COMBINE_RADIUS_METERS) {
+              insertElapsed += (row.elapsed_time || 0);
+              insertMoving  += (row.moving_time  || 0);
+              break;
+            }
+          }
+        }
+
         const weather = await fetchWeather(peak.lat, peak.lng, summitedAt).catch(() => null);
         try {
           await pool.query(
@@ -263,7 +293,7 @@ async function runSync(userId, accessToken, afterEpoch) {
              ON CONFLICT (user_id, fourteener_id, strava_activity_id) DO NOTHING`,
             [
               userId, peak.id, activity.id, activity.name, summitedAt,
-              activity.elapsed_time, activity.moving_time, activity.distance,
+              insertElapsed || null, insertMoving || null, activity.distance,
               activity.total_elevation_gain, activity.average_heartrate || null,
               activity.max_heartrate || null, activity.average_speed,
               weather?.tempHighF || null, weather?.windMph || null,
