@@ -51,6 +51,7 @@ function findMatchedPeaks(activityPolyline) {
 
   const thirteenerMatches = [];
   for (const peak of OFFICIAL_THIRTEENERS) {
+    if (peak.lat == null || peak.lng == null) continue;
     let closest = Infinity;
     for (const [lat, lng] of points) {
       const d = haversineMeters(lat, lng, peak.lat, peak.lng);
